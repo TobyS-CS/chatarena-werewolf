@@ -43,6 +43,7 @@ class Werewolf(Environment):
         self.werewolf_list = None
         self._initialized = False
         self.night_vote_dict = {}
+        self.day_vote_dict = {}
     
         self.reset()
 
@@ -99,23 +100,40 @@ class Werewolf(Environment):
             self.night_discuss_turn(player_name=player_name, action=action)
         elif self._current_phase == NIGHT_VOTE:
             self.night_vote_turn(player_name=player_name, action=action)
+        elif self._current_phase == REVEAL:
+            self.reveal_turn(player_name=player_name)
+        terminal = self.is_terminal()
+        timestep = TimeStep(
+            observation=self.get_observation(), reward=self.get_rewards(terminal), terminal=terminal
+        )
 
-    def day_discuss_turn(self, player_name: str):
+        if self.is_terminal():
+            timestep.terminal = True
+
+    def day_discuss_turn(self, player_name: str, action: str):
         """Day discuss phase turn for all roles."""
         
-    def day_vote_turn(self, player_name: str):
+    def day_vote_turn(self, player_name: str, action: str):
         """Day vote phase turn for all roles."""
+        message = Message(
+            agent_name=player_name,
+            content=action,
+            turn=self._current_turn,
+            visible_to=player_name,
+        )
+        self.message_pool.append_message(message) # Logs the who took the action and when, only visable to the current player in game.
+        vote = self._text2vote(action)
+        self.day_vote_dict[vote] += 1
 
-    def night_discuss_turn(self, player_name: str):
+    def night_discuss_turn(self, player_name: str, action: str):
         """Night discussion phase turn for special roles."""
 
     def night_vote_turn(self, player_name: str, action: str):
         """Night vote phase turn for special roles."""
         # Check if this is a special role, i.e. not basic townsfolk.
-        if self.player_roles[player_name] == TOWNSFOLK:
+        if self.player_roles[player_name] == TOWNSFOLK: # Townsfolk don't have night actions.
             return
         else:
-            # What is the actual night vote behavior, How do I get them to vote?
             message = Message(
                 agent_name=player_name,
                 content=action,
@@ -125,6 +143,10 @@ class Werewolf(Environment):
             self.message_pool.append_message(message) # Logs the who took the action and when, only visable to the current player in game.
             vote = self._text2vote(action)
             self.night_vote_dict[vote] = self.player_roles[player_name]
+
+    def reveal_turn(self, player_name: str):
+        """Reveal phase turn, this is just informing the agents what happened in the night"""
+
 
     def check_action(self, action: str, player_name: str) -> bool:
         """Checks if a action is valid."""
@@ -156,7 +178,7 @@ class Werewolf(Environment):
         return sliced
     
     
-    #Taken from Cameleon, a fairly heavy implementation, but gives leaneancy to response.
+    #Taken from Cameleon, a fairly heavy implementation, but gives leniency to response.
     def _text2vote(self, text) -> str:
         """Convert text to vote, return a player's name."""
         # lower = text.lower().replace("[", "").replace("]", "").replace(".", "")
@@ -177,4 +199,11 @@ class Werewolf(Environment):
     def reset_day_vote_dict(self):
         for player in self.player_names:
             self.night_vote_dict[player] = 0
+    
+    #Currently gives no rewards
+    def get_rewards(self, is_terminal):
+        reward_dict = {}
+        for player in self.player_names:
+            reward_dict[player] = 0
+        
 
