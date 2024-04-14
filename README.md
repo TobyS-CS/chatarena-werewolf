@@ -262,3 +262,14 @@ We would like to thank our sponsors for supporting this project:
 
 - [SEQUOIA](https://www.sequoiacap.com/)
 - [Shixiang Capital](https://sx.shixiangcap.com/home)
+
+# Werewolf
+
+## Docker 
+To get test server on http://localhost:8080/
+```
+docker build -t chat_test
+docker run -dp 8080:8080 chat_test
+```
+
+
