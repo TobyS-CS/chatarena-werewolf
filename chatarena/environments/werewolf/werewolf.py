@@ -108,9 +108,6 @@ class Werewolf(Environment):
             self.night_discuss_turn(player_name=player_name, action=action)
         elif self._current_phase == NIGHT_VOTE:
             self.night_vote_turn(player_name=player_name, action=action)
-        # elif self._current_phase == REVEAL:
-        #     self.reveal_turn(player_name=player_name)
-        # Commented out, this turn is useful for humans but agents get observations before each action so this isn't useful to them.fg
         terminal = self.is_terminal()
         timestep = TimeStep(
             observation=self.get_observation(), reward=self.get_rewards(terminal), terminal=terminal

@@ -10,4 +10,5 @@ RUN pip install --no-cache-dir gradio==3.45.0
 RUN pip install chatarena[gradio]
 EXPOSE 8080
 ENV GRADIO_SERVER_NAME="0.0.0.0"
-CMD ["python3" , "chatarena-werewolf/app.py" ]
+WORKDIR /chatarena-werewolf
+CMD ["python3" , "app.py" ]
