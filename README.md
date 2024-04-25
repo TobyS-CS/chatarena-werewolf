@@ -268,7 +268,7 @@ We would like to thank our sponsors for supporting this project:
 ## Docker 
 To get test server on http://localhost:8080/
 ```
-docker build -t chat_test
+docker build -t chat_test .
 docker run -dp 8080:8080 chat_test
 ```
 
