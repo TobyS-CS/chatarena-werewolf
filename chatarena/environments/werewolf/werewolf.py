@@ -38,19 +38,21 @@ class Werewolf(Environment):
         super().__init__(player_names=player_names, **kwargs)
         self.message_pool = MessagePool()
         # Game states
+        #Turn Counters
         self._current_turn = 0
         self._next_player_idx = 0
         self._discussion_count = 0
         self._discussion_max = DEFAULT_DISCUSSION_ROUNDS * len(player_names)
         self._current_phase = DAY_DISSCUSION
+        #Player votes and states
         self.players_votes = None
         self.player_status = None
         self.werewolf_list = None
-        self.prompt_dict = None
-        self._initialized = False
         self.night_vote_dict = {}
         self.day_vote_dict = {}
-    
+        #prompts
+        self.prompt_dict = None
+        self._initialized = False
         self.reset()
 
 
@@ -72,10 +74,9 @@ class Werewolf(Environment):
         self.night_vote_dict = self.reset_night_vote_dict()
         self.message_pool.reset()
         if len(sys.argv) > 0:
-            prompt_dict = self._get_prompt_dict(sys.argv[1])
+            self._get_reset_dicts(sys.argv[1])
         else:
-            prompt_dict = self._get_prompt_dict(DEFAULT_PROMPTS)
-        self._prompt_dict = prompt_dict
+            self._get_reset_dicts(DEFAULT_PROMPTS)
         self._initialized = True
         init_timestep = TimeStep(
             observation=self.get_observation(),
@@ -110,15 +111,24 @@ class Werewolf(Environment):
             # Giving player their role
             self._moderator_speak(text= self.player_roles[player_name][1], visible_to= player_name)
         if self._current_phase == DAY_DISSCUSION:
+            #GIVE INFO ON WHO DIED. FIGURE OUT BEST DATA STRUCTURE FOR THIS.
+            #Tally this after the night. 
+            if self._discussion_count == 0:
+                day_discuss_prompt =  self._prompt_dict["day_discuss_prompt"]
+                self._moderator_speak(text= day_discuss_prompt)
             self._discussion_count += 1
             self.day_discuss_turn(player_name=player_name, action=action)
             if self._discussion_count >= self._discussion_max:
+                self._discussion_count = 0
                 self._current_phase = DAY_VOTE
         elif self._current_phase == DAY_VOTE:
-            vote_prompt = player_name + self._prompt_dict["day_vote_prompt"] + self.get_living_list()
+            valid_votes = self.get_living_list().append("pass")
+            vote_prompt = player_name + self._prompt_dict["day_vote_prompt"] + valid_votes
             self._moderator_speak(text= vote_prompt, visible_to= player_name)
             self.day_vote_turn(player_name=player_name, action=action)
         elif self._current_phase == NIGHT_DISSCUSION:
+            night_discuss_prompt =  self._night_vote_prompts[self.player_roles[player_name][0]]
+            self._moderator_speak(text= night_discuss_prompt, visible_to=self.werewolf_list)
             self.night_discuss_turn(player_name=player_name, action=action)
         elif self._current_phase == NIGHT_VOTE:
             self.night_vote_turn(player_name=player_name, action=action)
@@ -142,7 +152,7 @@ class Werewolf(Environment):
             agent_name=player_name,
             content=action,
             turn=self._current_turn,
-            visible_to=player_name,
+            visible_to= "all", #Check this I'm pretty sure this is valid.
         )
         self.message_pool.append_message(message) # Logs the who took the action and when, only visable to the current player in game.
         vote = self._text2vote(action)
@@ -169,10 +179,7 @@ class Werewolf(Environment):
             )
             self.message_pool.append_message(message) # Logs the who took the action and when, only visable to the current player in game.
             vote = self._text2vote(action)
-            self.night_vote_dict[vote] = self.player_roles[player_name]
-
-    # def reveal_turn(self, player_name: str):
-    #     """Reveal phase turn, this is just informing the agents what happened in the night"""
+            self.night_vote_dict[vote] = self.player_roles[player_name][0]
 
     def check_action(self, action: str, player_name: str) -> bool:
         """Checks if a action is valid."""
@@ -183,9 +190,9 @@ class Werewolf(Environment):
         town_count = 0
         werewolf_count = 0
         for player_name in self.player_status:
-            if self.player_status[player_name] == ALIVE and self.player_roles[player_name] > WEREWOLF:
+            if self.player_status[player_name] == ALIVE and self.player_roles[player_name][0] > WEREWOLF:
                 town_count += 1
-            elif self.player_status[player_name] == ALIVE and self.player_roles[player_name] == WEREWOLF:
+            elif self.player_status[player_name] == ALIVE and self.player_roles[player_name][0] == WEREWOLF:
                 werewolf_count += 1
         if werewolf_count == 0 or town_count <= werewolf_count:
             return True
@@ -248,10 +255,11 @@ class Werewolf(Environment):
             reward_dict[player] = 0
 
     def get_living_list(self):
-        dead_list = []
+        living_list = []
         for player in self.player_status.keys():
             if self.player_status[player] == ALIVE:
-                dead_list.append(player)
+                living_list.append(player)
+        return living_list
     
     def _moderator_speak(self, text: str, visible_to: Union[str, List[str]] = "all"):
         """Moderator say something."""
@@ -267,7 +275,24 @@ class Werewolf(Environment):
         """Read the json for the prompts."""
         try:
             with open(file_name, 'r', encoding='utf-8') as file_object:
-                return json.load(file_object)
+                self._prompt_dict =  json.load(file_object)
         except IOError:
             with open(DEFAULT_PROMPTS, 'r', encoding='utf-8') as file_object:
-                return json.load(file_object)
+                self._prompt_dict = json.load(file_object)
+        self._seer_reveal_prompts = [
+            self._prompt_dict["seer_werewolf_prompt"],
+            self._prompt_dict["seer_townsfolk_prompt"],
+            self._prompt_dict["seer_seer_prompt"],
+            self._prompt_dict["seer_guard_prompt"],
+            self._prompt_dict["seer_witch_prompt"],
+            self._prompt_dict["seer_hunter_prompt"]
+        ]
+        self._night_vote_prompts = [
+            self._prompt_dict["night_vote_prompt_werewolf"],
+            None,
+            self._prompt_dict["night_vote_prompt_seer"],
+            self._prompt_dict["night_vote_prompt_guard "],
+            self._prompt_dict["night_vote_prompt_witch"],
+            None
+        ]
+        
