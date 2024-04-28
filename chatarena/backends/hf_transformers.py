@@ -39,7 +39,7 @@ class TransformersConversational(IntelligenceBackend):
     stateful = False
     type_name = "transformers:conversational"
 
-    def __init__(self, model: str, device: int = -1, **kwargs):
+    def __init__(self, model = "facebook/blenderbot-400M-distill", device: int = -1, **kwargs):
         super().__init__(model=model, device=device, **kwargs)
         self.model = model
         self.device = device

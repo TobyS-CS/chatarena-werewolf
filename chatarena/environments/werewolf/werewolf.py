@@ -1,5 +1,4 @@
 import random
-import re
 from typing import Dict, List, Union
 import sys
 import json
@@ -12,7 +11,6 @@ DAY_VOTE = 1
 NIGHT_DISSCUSION = 2
 NIGHT_VOTE = 3
 REVEAL = 4
-PLAYER_TO_WEREWOLF_COUNT = {5:1, 6:1, 7:2}
 DEFAULT_PLAYER_COUNT = 7
 WEREWOLF = 0
 TOWNSFOLK = 1
@@ -29,7 +27,6 @@ DEFAULT_DISCUSSION_ROUNDS = 2
 @register_env
 class Werewolf(Environment):
     type_name = "werewolf"
-
     def __init__(
         self,
         player_names: List[str],
@@ -55,7 +52,6 @@ class Werewolf(Environment):
         self._initialized = False
         self.reset()
 
-
     def get_next_player(self) -> str:
         """Get the next player."""
         if self.is_terminal():
@@ -63,7 +59,6 @@ class Werewolf(Environment):
         while self.player_status[self._next_player_idx] != ALIVE:
             self._next_player_idx = (self._next_player_idx + 1) % len(self.player_names)
         return self.player_names[self._next_player_idx]
-    
 
     def reset(self):
         self._current_turn = 0
@@ -83,14 +78,13 @@ class Werewolf(Environment):
             reward=self.get_zero_rewards(),
             terminal=False,
         )
-
         return init_timestep
 
     def print(self):
         """Prints the message pool, I might want to see if I could store this
         in a file for records. """
         self.message_pool.print()
-        
+
     def get_observation(self, player_name=None) -> List[Message]:
         """Get observation for the player."""
         """Individual players are explicitly reminded who is dead."""
@@ -98,12 +92,11 @@ class Werewolf(Environment):
             return self.message_pool.get_all_messages()
         else:
             return self.message_pool.get_visible_messages(player_name, turn=self._current_turn)
-        
+
     def step(self, player_name: str, action: str) -> TimeStep:
         """This is the action to result method so if they all vote and then a time step happens they learn the result and get rewards."""
         # Lets look deep at chameleon about how they handle their step and how that relates to the game.
-
-        #Now I need to add full rules and role prompt as well.
+        # Now I need to add full rules and role prompt as well.
         if (self._current_turn == 0):
             # Giving player their name and the rules of werewolf
             rule_name_promp =  + self._prompt_dict["rules_prompt"] + player_name
@@ -136,7 +129,6 @@ class Werewolf(Environment):
         timestep = TimeStep(
             observation=self.get_observation(), reward=self.get_rewards(terminal), terminal=terminal
         )
-
         if self.is_terminal():
             timestep.terminal = True
 
@@ -198,28 +190,17 @@ class Werewolf(Environment):
             return True
         return False
 
-
     def set_players_alive(self) -> Dict[str, float]:
-        """
-        Return a dictionary with all player names as keys and one as the status.
-        """
         return {player_name: 1 for player_name in self.player_names}
     
     def set_player_roles(self, distribution) -> Dict[str, (float, str)]:
-        prompt_dict = self._prompt_dict
-        distribution_text = [prompt_dict["werewolf_prompt"],
-                             prompt_dict["townsfolk_prompt"],
-                             prompt_dict["seer_prompt"],
-                             prompt_dict["guard_prompt"],
-                             prompt_dict["witch_prompt"],
-                             prompt_dict["hunter_prompt"]]
         player_roles = {}
         it = iter(self.player_names)
         random.shuffle(self.player_names)
         player_roles_distribution = [list(islice(it, 0, i)) for i in distribution]
         for i in range(0, len(player_roles_distribution)):
             for player in player_roles_distribution[i]:
-                player_roles[player] = (i, distribution_text[i])
+                player_roles[player] = (i, self._distribution_text[i])
         self.player_roles = player_roles
         self.werewolf_list = []
         for player in player_roles:
@@ -229,7 +210,7 @@ class Werewolf(Environment):
     #Taken from Cameleon, a fairly heavy implementation, but gives leniency to response.
     def _text2vote(self, text) -> str:
         """Convert text to vote, return a player's name."""
-        # lower = text.lower().replace("[", "").replace("]", "").replace(".", "")
+        # bllower = text.lower().replace("[", "").replace("]", "").replace(".", "")
         text = text.lower()
         for name in self.player_names:
             candidates = [
@@ -244,6 +225,7 @@ class Werewolf(Environment):
     def reset_night_vote_dict(self):
         for player in self.player_names:
             self.night_vote_dict[player] = []
+
     def reset_day_vote_dict(self):
         for player in self.player_names:
             self.night_vote_dict[player] = 0
@@ -295,4 +277,10 @@ class Werewolf(Environment):
             self._prompt_dict["night_vote_prompt_witch"],
             None
         ]
+        self._distribution_text = [self._prompt_dict["werewolf_prompt"],
+                        self._prompt_dict["townsfolk_prompt"],
+                        self._prompt_dict["seer_prompt"],
+                        self._prompt_dict["guard_prompt"],
+                        self._prompt_dict["witch_prompt"],
+                        self._prompt_dict["hunter_prompt"]]
         

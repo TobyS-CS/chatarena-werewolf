@@ -29,7 +29,7 @@ css = """#col-container {max-width: 90%; margin-left: auto; margin-right: auto; 
 # .scroll-hide {overflow-y: scroll; max-height: 100px;}
 
 
-DEBUG = False
+DEBUG = True
 
 DEFAULT_BACKEND = "human"
 DEFAULT_ENV = "conversation"
@@ -118,14 +118,12 @@ def get_player_components(name, visible):
     with gr.Row():
         with gr.Column():
             role_name = gr.Textbox(
-                line=1,
                 show_label=False,
                 interactive=True,
                 visible=visible,
                 placeholder=f"Player name for {name}",
             )
             role_desc = gr.Textbox(
-                lines=3,
                 show_label=False,
                 interactive=True,
                 visible=visible,
@@ -428,7 +426,7 @@ Prompting multiple AI agents to play games in a language-driven environment.
 
             chatbot_output = _convert_to_chatbot_output(all_messages, display_recv=True)
             update_dict = {
-                human_input_textbox: gr.Textbox.update(value=""),
+                human_input_textbox: gr.update(value=""),
                 chatbot: chatbot_output,
                 btn_step: gr.update(
                     value="Next Step", interactive=not timestep.terminal
