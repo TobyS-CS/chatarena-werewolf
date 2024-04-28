@@ -27,7 +27,7 @@ class Arena:
 
         self.current_timestep = environment.reset()
         self.uuid = uuid.uuid4()  # Generate a unique id for the game
-        self.invalid_actions_retry = 5
+        self.invalid_actions_retry = 1
 
     @property
     def num_players(self):

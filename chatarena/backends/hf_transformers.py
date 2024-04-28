@@ -43,24 +43,25 @@ class TransformersConversational(IntelligenceBackend):
     stateful = False
     type_name = "transformers:conversational"
 
-    def __init__(self, model: str, device: int = -1, **kwargs):
-        super().__init__(model=model, device=device, **kwargs)
+    def __init__(self, model: str = "meta-llama/Meta-Llama-3-8B-Instruct", device: int = -1, **kwargs):
         model = "meta-llama/Meta-Llama-3-8B-Instruct"
+        super().__init__(model=model, device=device, **kwargs)
 
         self.model = model
         self.device = device
 
-        bnb_config = BitsAndBytesConfig(
-            load_in_8bit=True,
-            bnb_8bit_use_double_quant=True,
-            bnb_8bit_quant_type="nf4",
-            bnb_8bit_compute_dtype=torch.bfloat16
-        )
+#         bnb_config = BitsAndBytesConfig(
+#             load_in_8bit=True,
+#             # bnb_8bit_use_double_quant=True,
+#             # bnb_8bit_quant_type="nf4",
+#             # bnb_8bit_compute_dtype=torch.bfloat16
+#         )
     
 
         assert is_transformers_available, "Transformers package is not installed"
         self.chatbot = pipeline(
-            task="conversational", model=self.model,quantization_config=bnb_config
+            task="conversational", model=self.model,    model_kwargs={"torch_dtype": torch.bfloat16},device_map="auto"
+
         )
 
     # @retry(stop=stop_after_attempt(6), wait=wait_random_exponential(min=1, max=60))
