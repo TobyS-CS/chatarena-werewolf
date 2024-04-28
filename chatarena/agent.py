@@ -116,7 +116,7 @@ class Player(Agent):
                 request_msg=None,
             )
         except RetryError as e:
-            err_msg = f"Agent {self.name} failed to generate a response. Error: {e.last_attempt.exception()}. Sending signal to end the conversation."
+            err_msg = f" ######### Agent {self.name} failed to generate a response. Error: {e.last_attempt.exception()}. Sending signal to end the conversation."
             logging.warning(err_msg)
             response = SIGNAL_END_OF_CONVERSATION + err_msg
 

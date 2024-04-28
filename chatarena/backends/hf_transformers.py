@@ -8,6 +8,10 @@ from ..message import SYSTEM_NAME as SYSTEM
 from ..message import Message
 from .base import IntelligenceBackend, register_backend
 
+from transformers import BitsAndBytesConfig
+import torch
+import os
+os.environ['HF_TOKEN'] = ''
 
 @contextmanager
 def suppress_stdout_stderr():
@@ -41,22 +45,36 @@ class TransformersConversational(IntelligenceBackend):
 
     def __init__(self, model: str, device: int = -1, **kwargs):
         super().__init__(model=model, device=device, **kwargs)
+        model = "meta-llama/Meta-Llama-3-8B-Instruct"
+
         self.model = model
         self.device = device
 
+        bnb_config = BitsAndBytesConfig(
+            load_in_8bit=True,
+            bnb_8bit_use_double_quant=True,
+            bnb_8bit_quant_type="nf4",
+            bnb_8bit_compute_dtype=torch.bfloat16
+        )
+    
+
         assert is_transformers_available, "Transformers package is not installed"
         self.chatbot = pipeline(
-            task="conversational", model=self.model, device=self.device
+            task="conversational", model=self.model,quantization_config=bnb_config
         )
 
-    @retry(stop=stop_after_attempt(6), wait=wait_random_exponential(min=1, max=60))
+    # @retry(stop=stop_after_attempt(6), wait=wait_random_exponential(min=1, max=60))
     def _get_response(self, conversation):
         conversation = self.chatbot(conversation)
         response = conversation.generated_responses[-1]
         return response
 
     @staticmethod
-    def _msg_template(agent_name, content):
+    def _msg_template(agent_name, content, response_type = False):
+        if response_type:
+            return {"role" : "assistant","content":content}
+        else:
+            return {"role" : "user","content":content}
         return f"[{agent_name}]: {content}"
 
     def query(
@@ -75,7 +93,7 @@ class TransformersConversational(IntelligenceBackend):
             if global_prompt
             else [(SYSTEM, role_desc)]
         )
-
+        print("####### Agent : ",agent_name)
         for msg in history_messages:
             all_messages.append((msg.agent_name, msg.content))
         if request_msg:
@@ -83,34 +101,41 @@ class TransformersConversational(IntelligenceBackend):
 
         prev_is_user = False  # Whether the previous message is from the user
         for i, message in enumerate(all_messages):
+            print("################ ")
+            print(message)
             if i == 0:
                 assert (
                     message[0] == SYSTEM
                 )  # The first message should be from the system
+                conversation = Conversation(message[0])
 
             if message[0] != agent_name:
                 if not prev_is_user:
-                    user_inputs.append(self._msg_template(message[0], message[1]))
+                    # user_inputs.append(self._msg_template(message[0], message[1]))
+                    conversation.add_message(self._msg_template(message[0], message[1],False))
                 else:
-                    user_inputs[-1] += "\n" + self._msg_template(message[0], message[1])
+                    # user_inputs[-1] += "\n" + self._msg_template(message[0], message[1])
+                    conversation.add_message(self._msg_template(message[0], message[1], False))
                 prev_is_user = True
             else:
                 if prev_is_user:
-                    generated_responses.append(message[1])
+                    # generated_responses.append(message[1])
+                    conversation.add_message(self._msg_template(message[0], message[1],True))
                 else:
-                    generated_responses[-1] += "\n" + message[1]
+                    # generated_responses[-1] += "\n" + message[1]
+                    conversation.add_message(self._msg_template(message[0], message[1],True))
                 prev_is_user = False
 
-        assert len(user_inputs) == len(generated_responses) + 1
-        past_user_inputs = user_inputs[:-1]
-        new_user_input = user_inputs[-1]
+        # assert len(user_inputs) == len(generated_responses) + 1
+        # past_user_inputs = user_inputs[:-1]
+        # new_user_input = user_inputs[-1]
 
         # Recreate a conversation object from the history messages
-        conversation = Conversation(
-            text=new_user_input,
-            past_user_inputs=past_user_inputs,
-            generated_responses=generated_responses,
-        )
+        # conversation = Conversation(
+        #     text=new_user_input,
+        #     past_user_inputs=past_user_inputs,
+        #     generated_responses=generated_responses,
+        # )
 
         # Get the response
         response = self._get_response(conversation)

@@ -1,7 +1,7 @@
 import re
 from typing import List, Union
 
-from pettingzoo.classic import tictactoe_v3
+# from pettingzoo.classic import tictactoe_v3
 
 from chatarena.environments.base import Environment, TimeStep, register_env
 

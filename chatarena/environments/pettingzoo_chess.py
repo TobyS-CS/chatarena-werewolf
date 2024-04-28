@@ -1,8 +1,8 @@
 import re
 from typing import List, Union
 
-from pettingzoo.classic import chess_v6
-from pettingzoo.classic.chess.chess_utils import chess, get_move_plane
+# from pettingzoo.classic import chess_v6
+# from pettingzoo.classic.chess.chess_utils import chess, get_move_plane
 
 from chatarena.environments.base import Environment, TimeStep, register_env
 
