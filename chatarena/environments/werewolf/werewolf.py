@@ -71,7 +71,7 @@ class Werewolf(Environment):
         self._next_player_idx = 0
         self._vote_count = 0
         self._living_count = sum(DEFAULT_DISTRIBUTION)
-        self._current_phase = NIGHT_VOTE #DAY_VOTE #DAY_DISSCUSION
+        self._current_phase = DAY_DISSCUSION
         self.player_status = self.set_players_alive()
         self._get_prompt_dict()
         self.set_player_roles(DEFAULT_DISTRIBUTION)
