@@ -21,7 +21,7 @@ HUNTER = 5
 DEAD = 0
 ALIVE = 1
 #2 Werewolfs and 5 Townsfolk
-DEFAULT_DISTRIBUTION = [1, 2, 0, 0, 0, 0]
+DEFAULT_DISTRIBUTION = [2, 5, 0, 0, 0, 0]
 DEFAULT_PROMPTS = "chatarena/environments/werewolf/prompt_jsons/new_prompt.json"
 DEFAULT_DISCUSSION_ROUNDS = 2
 @register_env
