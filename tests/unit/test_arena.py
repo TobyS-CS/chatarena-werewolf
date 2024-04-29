@@ -176,5 +176,10 @@ class TestArena(TestCase):
         self.assertTrue(True)
 
 
-if __name__ == "__main__":
-    unittest.main()
+arena = Arena.from_config(os.path.join(EXAMPLES_DIR, "chameleon.json"))
+for i in range(1, 3):
+    print(f"=== Step {i} ===")
+    arena.step()
+    arena.environment.print()
+# if __name__ == "__main__":
+#     unittest.main()

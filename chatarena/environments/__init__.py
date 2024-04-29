@@ -3,8 +3,8 @@ from .base import ENV_REGISTRY, Environment, TimeStep, register_env
 from .chameleon import Chameleon
 from .werewolf import werewolf
 from .conversation import Conversation, ModeratedConversation
-from .pettingzoo_chess import PettingzooChess
-from .pettingzoo_tictactoe import PettingzooTicTacToe
+# from .pettingzoo_chess import PettingzooChess
+# from .pettingzoo_tictactoe import PettingzooTicTacToe
 
 
 # Load an environment from a config dictionary

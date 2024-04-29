@@ -65,6 +65,7 @@ class Werewolf(Environment):
         print(self.player_names[self._next_player_idx])
 
         return self.player_names[self._next_player_idx]
+    
 
     def reset(self):
         self._current_turn = 0
@@ -84,13 +85,14 @@ class Werewolf(Environment):
             reward=self.get_zero_rewards(),
             terminal=False,
         )
+
         return init_timestep
 
     def print(self):
         """Prints the message pool, I might want to see if I could store this
         in a file for records. """
         self.message_pool.print()
-
+        
     def get_observation(self, player_name=None) -> List[Message]:
         """Get observation for the player."""
         """Individual players are explicitly reminded who is dead."""
