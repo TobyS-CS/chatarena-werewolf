@@ -85,7 +85,8 @@ class Werewolf(Environment):
             reward=self.get_zero_rewards(),
             terminal=False,
         )
-
+        self.give_initial_prompts()
+        self.give_day_discuss_prompts()
         return init_timestep
 
     def print(self):
@@ -109,59 +110,92 @@ class Werewolf(Environment):
             print(player_name)
             return self.message_pool.get_visible_messages(player_name, turn=self._current_turn + 1)
 
-    def step(self, player_name: str, action: str) -> TimeStep:
-        if (self._current_turn == 0):
+    def give_initial_prompts(self):
             # Giving player their name and the rules of werewolf
-            rule_name_promp = self._prompt_dict["rules_prompt"] + player_name
-            print("self._current_turn == 0")
-            print(rule_name_promp)
-            print(player_name)
-            self._moderator_speak(text= rule_name_promp, visible_to=player_name)
-            # Giving player theiFr role
-            self._moderator_speak(text= self.player_roles[player_name][1], visible_to= player_name)
+            for player_name in self.player_names:
+                rule_name_promp = self._prompt_dict["rules_prompt"] + player_name
+                print("self._current_turn == 0")
+                print(rule_name_promp)
+                print(player_name)
+                self._moderator_speak(text= rule_name_promp, visible_to=player_name)
+                # Giving player theiFr role
+                self._moderator_speak(text= self.player_roles[player_name][1], visible_to= player_name)
+
+    def give_day_discuss_prompts(self):
+        day_discuss_prompt =  self._prompt_dict["day_discuss_prompt"]
+        self._moderator_speak(text= day_discuss_prompt)
+
+    def give_day_vote_prompts(self):
+        valid_votes = self.get_living_list()
+        valid_votes.append("pass")
+        for player_name in self.player_names:
+            vote_prompt = player_name + self._prompt_dict["day_vote_prompt"] + str(valid_votes)
+            self._moderator_speak(text= vote_prompt, visible_to=player_name)
+
+    def give_night_discuss_prompts(self):
+        for player_name in self.player_names:
+            if self.player_roles[player_name][0] ==  WEREWOLF:
+                night_discuss_prompt =  self._prompt_dict["night_discuss_prompt"]
+                self._moderator_speak(text= night_discuss_prompt, visible_to=self.werewolf_list)
+
+    def give_night_vote_prompts(self):
+        valid_votes = self.get_living_list()
+        valid_votes.append("pass") #This does allow werewolf to kill themselves. 
+        for player_name in self.player_names:
+            if self.player_roles[player_name][0] == WEREWOLF:
+                night_vote_prompt_werewolf =  self._prompt_dict["night_vote_prompt_werewolf"] + valid_votes 
+                self._moderator_speak(text= night_vote_prompt_werewolf, visible_to=self.werewolf_list)
+            elif self.player_roles[player_name][0] == GUARD:
+                night_vote_prompt_guard =  self._prompt_dict["night_vote_prompt_guard"] + valid_votes 
+                self._moderator_speak(text= night_vote_prompt_guard, visible_to=self.player_name)
+            elif self.player_roles[player_name][0] == SEER:
+                night_vote_prompt_seer =  self._prompt_dict["night_vote_prompt_seer"] + valid_votes 
+                self._moderator_speak(text= night_vote_prompt_seer, visible_to=player_name)
+            elif self.player_roles[player_name][0] == WITCH:
+                night_vote_prompt_witch =  self._prompt_dict["night_vote_prompt_witch"] + valid_votes 
+                self._moderator_speak(text= night_vote_prompt_witch, visible_to=player_name)
+
+    def step(self, player_name: str, action: str) -> TimeStep:
         if self._current_phase == DAY_DISSCUSION:
-            if self._discussion_count == 0:
-                day_discuss_prompt =  self._prompt_dict["day_discuss_prompt"]
-                self._moderator_speak(text= day_discuss_prompt)
             self._discussion_count += 1
             self.day_discuss_turn(player_name=player_name, action=action)
             if self._discussion_count >= self._discussion_max:
                 self._discussion_count = 0
                 self._current_phase = DAY_VOTE
                 self.reset_day_vote_dict()
+                self.give_day_vote_prompts()
         elif self._current_phase == DAY_VOTE:
-            valid_votes = self.get_living_list()
-            valid_votes.append("pass")
-            vote_prompt = player_name + self._prompt_dict["day_vote_prompt"] + str(valid_votes)
-            self._moderator_speak(text= vote_prompt, visible_to=player_name)
             self.day_vote_turn(player_name=player_name, action=action)
             self._vote_count += 1
             if self._vote_count == self._living_count: # Voting ends
                 self.execute_player()
-                self._current_phase = NIGHT_DISSCUSION
-                self._vote_count = 0
+                if not self.is_terminal():
+                    self._current_phase = NIGHT_DISSCUSION
+                    self.give_night_discuss_prompts()
+                    self._vote_count = 0
         elif self._current_phase == NIGHT_DISSCUSION:
-            if self.player_roles[player_name][0] ==  WEREWOLF:
-                night_discuss_prompt =  self._prompt_dict["night_discuss_prompt"]
-                self._moderator_speak(text= night_discuss_prompt, visible_to=self.werewolf_list)
-                self.night_discuss_turn(player_name=player_name, action=action)
+            self.night_discuss_turn(player_name=player_name, action=action)
             self._discussion_count += 1
             if self._discussion_count == self._living_count: # All players have spoken if able.
                 self._current_phase = NIGHT_VOTE
+                self.give_night_vote_prompts()
                 self._discussion_count = 0
         elif self._current_phase == NIGHT_VOTE:
             self.night_vote_turn(player_name=player_name, action=action)
             self._vote_count += 1
             if self._vote_count == self._living_count: # All players have spoken if able.
                 self.apply_night_actions()
+                if not self.is_terminal():
+                    self._current_phase = NIGHT_DISSCUSION
+                    self.give_night_discuss_prompts()
+                    self._vote_count = 0
                 self._current_phase = DAY_DISSCUSION
+                self.give_day_discuss_prompts()
                 self._discussion_count = 0
         terminal = self.is_terminal()
         timestep = TimeStep(
             observation=self.get_observation(), reward=self.get_rewards(terminal), terminal=terminal
         )
-        if self.is_terminal():
-            timestep.terminal = True
         self.get_next_player()
         return timestep
 
@@ -216,9 +250,6 @@ class Werewolf(Environment):
                 turn=self._current_turn,
                 visible_to=player_name,
             )
-            print("night_vote_turn")
-            print(player_name)
-            print(self.player_roles[player_name])
             self.message_pool.append_message(message) # Logs the who took the action and when, only visable to the current player in game.
             vote = self._text2vote(action)
             if self.player_roles[player_name][0] == SEER:
