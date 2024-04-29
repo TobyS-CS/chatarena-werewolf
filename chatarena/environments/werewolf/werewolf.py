@@ -21,8 +21,8 @@ HUNTER = 5
 DEAD = 0
 ALIVE = 1
 #2 Werewolfs and 5 Townsfolk
-DEFAULT_DISTRIBUTION = [2, 5, 0, 0, 0, 0]
-DEFAULT_PROMPTS = "prompt_jsons/default.json"
+DEFAULT_DISTRIBUTION = [1, 2, 0, 0, 0, 0]
+DEFAULT_PROMPTS = "chatarena/environments/werewolf/prompt_jsons/new_prompt.json"
 DEFAULT_DISCUSSION_ROUNDS = 2
 @register_env
 class Werewolf(Environment):
@@ -39,6 +39,8 @@ class Werewolf(Environment):
         self._current_turn = 0
         self._next_player_idx = 0
         self._discussion_count = 0
+        self._living_count = 0
+        self._vote_count = 0
         self._discussion_max = DEFAULT_DISCUSSION_ROUNDS * len(player_names)
         self._current_phase = DAY_DISSCUSION
         #Player votes and states
@@ -48,7 +50,7 @@ class Werewolf(Environment):
         self.night_vote_dict = {}
         self.day_vote_dict = {}
         #prompts
-        self.prompt_dict = None
+        self._prompt_dict = None
         self._initialized = False
         self.reset()
 
@@ -56,22 +58,26 @@ class Werewolf(Environment):
         """Get the next player."""
         if self.is_terminal():
             return None
-        while self.player_status[self._next_player_idx] != ALIVE:
-            self._next_player_idx = (self._next_player_idx + 1) % len(self.player_names)
+        self._next_player_idx = (self._next_player_idx + 1) % (len(self.player_names))
+        while self.player_status[self.player_names[self._next_player_idx]] != ALIVE:
+            self._next_player_idx = (self._next_player_idx + 1) % (len(self.player_names))
+        print("get_next_player")
+        print(self.player_names[self._next_player_idx])
+
         return self.player_names[self._next_player_idx]
 
     def reset(self):
         self._current_turn = 0
         self._next_player_idx = 0
-        self._current_phase = DAY_DISSCUSION
+        self._vote_count = 0
+        self._living_count = sum(DEFAULT_DISTRIBUTION)
+        self._current_phase = NIGHT_VOTE #DAY_VOTE #DAY_DISSCUSION
         self.player_status = self.set_players_alive()
+        self._get_prompt_dict()
         self.set_player_roles(DEFAULT_DISTRIBUTION)
-        self.night_vote_dict = self.reset_night_vote_dict()
+        self.reset_night_vote_dict()
+        self.reset_day_vote_dict()
         self.message_pool.reset()
-        if len(sys.argv) > 0:
-            self._get_reset_dicts(sys.argv[1])
-        else:
-            self._get_reset_dicts(DEFAULT_PROMPTS)
         self._initialized = True
         init_timestep = TimeStep(
             observation=self.get_observation(),
@@ -88,24 +94,30 @@ class Werewolf(Environment):
     def get_observation(self, player_name=None) -> List[Message]:
         """Get observation for the player."""
         """Individual players are explicitly reminded who is dead."""
+        print("get_observation")
+        print(player_name)
+        print(self.player_names)
+        print(player_name == self.player_names[0])
+        print(player_name == self.player_names[1])
+        print(player_name == self.player_names[2])
         if player_name is None:
             return self.message_pool.get_all_messages()
         else:
-            return self.message_pool.get_visible_messages(player_name, turn=self._current_turn)
+            print("return self.message_pool.get_visible_messages(player_name, turn=self._current_turn)")
+            print(player_name)
+            return self.message_pool.get_visible_messages(player_name, turn=self._current_turn + 1)
 
     def step(self, player_name: str, action: str) -> TimeStep:
-        """This is the action to result method so if they all vote and then a time step happens they learn the result and get rewards."""
-        # Lets look deep at chameleon about how they handle their step and how that relates to the game.
-        # Now I need to add full rules and role prompt as well.
         if (self._current_turn == 0):
             # Giving player their name and the rules of werewolf
-            rule_name_promp =  + self._prompt_dict["rules_prompt"] + player_name
-            self._moderator_speak(text= rule_name_promp, visible_to= player_name)
-            # Giving player their role
+            rule_name_promp = self._prompt_dict["rules_prompt"] + player_name
+            print("self._current_turn == 0")
+            print(rule_name_promp)
+            print(player_name)
+            self._moderator_speak(text= rule_name_promp, visible_to=player_name)
+            # Giving player theiFr role
             self._moderator_speak(text= self.player_roles[player_name][1], visible_to= player_name)
         if self._current_phase == DAY_DISSCUSION:
-            #GIVE INFO ON WHO DIED. FIGURE OUT BEST DATA STRUCTURE FOR THIS.
-            #Tally this after the night. 
             if self._discussion_count == 0:
                 day_discuss_prompt =  self._prompt_dict["day_discuss_prompt"]
                 self._moderator_speak(text= day_discuss_prompt)
@@ -114,23 +126,42 @@ class Werewolf(Environment):
             if self._discussion_count >= self._discussion_max:
                 self._discussion_count = 0
                 self._current_phase = DAY_VOTE
+                self.reset_day_vote_dict()
         elif self._current_phase == DAY_VOTE:
-            valid_votes = self.get_living_list().append("pass")
-            vote_prompt = player_name + self._prompt_dict["day_vote_prompt"] + valid_votes
-            self._moderator_speak(text= vote_prompt, visible_to= player_name)
+            valid_votes = self.get_living_list()
+            valid_votes.append("pass")
+            vote_prompt = player_name + self._prompt_dict["day_vote_prompt"] + str(valid_votes)
+            self._moderator_speak(text= vote_prompt, visible_to=player_name)
             self.day_vote_turn(player_name=player_name, action=action)
+            self._vote_count += 1
+            if self._vote_count == self._living_count: # Voting ends
+                self.execute_player()
+                self._current_phase = NIGHT_DISSCUSION
+                self._vote_count = 0
         elif self._current_phase == NIGHT_DISSCUSION:
-            night_discuss_prompt =  self._night_vote_prompts[self.player_roles[player_name][0]]
-            self._moderator_speak(text= night_discuss_prompt, visible_to=self.werewolf_list)
-            self.night_discuss_turn(player_name=player_name, action=action)
+            if self.player_roles[player_name][0] ==  WEREWOLF:
+                night_discuss_prompt =  self._prompt_dict["night_discuss_prompt"]
+                self._moderator_speak(text= night_discuss_prompt, visible_to=self.werewolf_list)
+                self.night_discuss_turn(player_name=player_name, action=action)
+            self._discussion_count += 1
+            if self._discussion_count == self._living_count: # All players have spoken if able.
+                self._current_phase = NIGHT_VOTE
+                self._discussion_count = 0
         elif self._current_phase == NIGHT_VOTE:
             self.night_vote_turn(player_name=player_name, action=action)
+            self._vote_count += 1
+            if self._vote_count == self._living_count: # All players have spoken if able.
+                self.apply_night_actions()
+                self._current_phase = DAY_DISSCUSION
+                self._discussion_count = 0
         terminal = self.is_terminal()
         timestep = TimeStep(
             observation=self.get_observation(), reward=self.get_rewards(terminal), terminal=terminal
         )
         if self.is_terminal():
             timestep.terminal = True
+        self.get_next_player()
+        return timestep
 
     def day_discuss_turn(self, player_name: str, action: str):
         """Day discuss phase turn for all roles."""
@@ -149,6 +180,20 @@ class Werewolf(Environment):
         self.message_pool.append_message(message) # Logs the who took the action and when, only visable to the current player in game.
         vote = self._text2vote(action)
         self.day_vote_dict[vote] += 1
+    
+    def execute_player(self):
+        max = 0
+        voted_player = None
+        for player in self.day_vote_dict:
+            if self.day_vote_dict[player] > max:
+                max = self.day_vote_dict[player]
+                voted_player = player
+        if player == 'pass' or max / self._living_count <= .5:
+            return
+        else:
+            self.player_status[player] = DEAD
+            self._living_count -= 1
+            self._moderator_speak(voted_player + self._prompt_dict["voted_out"])
 
     def night_discuss_turn(self, player_name: str, action: str):
         """Night discussion phase turn for special roles."""
@@ -160,7 +205,7 @@ class Werewolf(Environment):
     def night_vote_turn(self, player_name: str, action: str):
         """Night vote phase turn for special roles."""
         # Check if this is a special role, i.e. not basic townsfolk.
-        if self.player_roles[player_name] == TOWNSFOLK: # Townsfolk don't have night actions.
+        if self.player_roles[player_name][0] == TOWNSFOLK: # Townsfolk don't have night actions.
             return
         else:
             message = Message(
@@ -169,9 +214,24 @@ class Werewolf(Environment):
                 turn=self._current_turn,
                 visible_to=player_name,
             )
+            print("night_vote_turn")
+            print(player_name)
+            print(self.player_roles[player_name])
             self.message_pool.append_message(message) # Logs the who took the action and when, only visable to the current player in game.
             vote = self._text2vote(action)
-            self.night_vote_dict[vote] = self.player_roles[player_name][0]
+            if self.player_roles[player_name][0] == SEER:
+                self._moderator_speak(self._seer_reveal_prompts[self.player_roles[vote][0]], player_name)
+            else:
+                self.night_vote_dict[vote].append(self.player_roles[player_name][0])
+
+    def apply_night_actions(self):
+        for player_name in self.player_names:
+            if self.night_vote_dict[player_name].contains(GUARD):
+                return
+            else:
+                self.player_status[player_name] = DEAD
+                self._living_count -= 1
+                self._moderator_speak(player_name + self._prompt_dict["who_died"])
 
     def check_action(self, action: str, player_name: str) -> bool:
         """Checks if a action is valid."""
@@ -181,19 +241,20 @@ class Werewolf(Environment):
         """Checks if the game is over, for this that is a victory for werewolf or townsfolk"""
         town_count = 0
         werewolf_count = 0
-        for player_name in self.player_status:
-            if self.player_status[player_name] == ALIVE and self.player_roles[player_name][0] > WEREWOLF:
+        for i in range(len(self.player_status)):
+            if self.player_status[self.player_names[i]] == ALIVE and self.player_roles[self.player_names[i]][0] > WEREWOLF:
                 town_count += 1
-            elif self.player_status[player_name] == ALIVE and self.player_roles[player_name][0] == WEREWOLF:
+            elif self.player_status[self.player_names[i]] == ALIVE and self.player_roles[self.player_names[i]][0] == WEREWOLF:
                 werewolf_count += 1
         if werewolf_count == 0 or town_count <= werewolf_count:
+            self._moderator_speak("Game is over.") # Add who won.
             return True
         return False
 
-    def set_players_alive(self) -> Dict[str, float]:
+    def set_players_alive(self):
         return {player_name: 1 for player_name in self.player_names}
     
-    def set_player_roles(self, distribution) -> Dict[str, (float, str)]:
+    def set_player_roles(self, distribution):
         player_roles = {}
         it = iter(self.player_names)
         random.shuffle(self.player_names)
@@ -203,8 +264,10 @@ class Werewolf(Environment):
                 player_roles[player] = (i, self._distribution_text[i])
         self.player_roles = player_roles
         self.werewolf_list = []
+        print(player_roles)
+        print(WEREWOLF)
         for player in player_roles:
-            if player_roles[player] == WEREWOLF:
+            if player_roles[player][0] == WEREWOLF:
                 self.werewolf_list.append(player)
     
     #Taken from Cameleon, a fairly heavy implementation, but gives leniency to response.
@@ -223,12 +286,18 @@ class Werewolf(Environment):
         return ""
     
     def reset_night_vote_dict(self):
-        for player in self.player_names:
-            self.night_vote_dict[player] = []
+        if (self.night_vote_dict != None):
+            for player in self.player_names:
+                self.night_vote_dict[player] = []
+        else:
+            self.night_vote_dict = {}
 
     def reset_day_vote_dict(self):
-        for player in self.player_names:
-            self.night_vote_dict[player] = 0
+        if (self.night_vote_dict != None):
+            for player in self.player_names:
+                self.day_vote_dict[player] = 0
+        else:
+            self.day_vote_dict = {}
     
     #Currently gives no rewards
     def get_rewards(self, is_terminal):
@@ -238,13 +307,19 @@ class Werewolf(Environment):
 
     def get_living_list(self):
         living_list = []
-        for player in self.player_status.keys():
-            if self.player_status[player] == ALIVE:
-                living_list.append(player)
+        print("get_living_list")
+        print()
+        print(self.player_status)
+        for i in range(len(self.player_status)):
+            if self.player_status[self.player_names[i]] == ALIVE:
+                living_list.append(self.player_names[i])
+        print("living_list")
+        print(living_list)
         return living_list
     
     def _moderator_speak(self, text: str, visible_to: Union[str, List[str]] = "all"):
         """Moderator say something."""
+        print("_moderator_speak")
         message = Message(
             agent_name="Moderator",
             content=text,
@@ -253,7 +328,7 @@ class Werewolf(Environment):
         )
         self.message_pool.append_message(message)
 
-    def _get_prompt_dict(self, file_name):
+    def _get_prompt_dict(self, file_name = DEFAULT_PROMPTS):
         """Read the json for the prompts."""
         try:
             with open(file_name, 'r', encoding='utf-8') as file_object:
@@ -273,7 +348,7 @@ class Werewolf(Environment):
             self._prompt_dict["night_vote_prompt_werewolf"],
             None,
             self._prompt_dict["night_vote_prompt_seer"],
-            self._prompt_dict["night_vote_prompt_guard "],
+            self._prompt_dict["night_vote_prompt_guard"],
             self._prompt_dict["night_vote_prompt_witch"],
             None
         ]

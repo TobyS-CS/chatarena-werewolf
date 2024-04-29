@@ -34,7 +34,7 @@ DEBUG = True
 DEFAULT_BACKEND = "human"
 DEFAULT_ENV = "conversation"
 MAX_NUM_PLAYERS = 6
-DEFAULT_NUM_PLAYERS = 2
+DEFAULT_NUM_PLAYERS = 3
 
 
 def load_examples():
