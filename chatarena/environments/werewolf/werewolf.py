@@ -20,6 +20,7 @@ WITCH = 4
 HUNTER = 5
 DEAD = 0
 ALIVE = 1
+PASS_STRING = 'pass'
 # # 2 Werewolfs and 5 Townsfolk
 # DEFAULT_DISTRIBUTION = [2, 5, 0, 0, 0, 0]
 DEFAULT_PROMPTS = "chatarena/environments/werewolf/prompt_jsons/new_prompt.json"
@@ -31,7 +32,7 @@ class Werewolf(Environment):
     def __init__(
         self,
         player_names: List[str],
-        role_distribution: Tuple[int] = (2, 5, 0, 0, 0, 0),     # 2 Werewolfs and 5 Townsfolk
+        role_distribution: Tuple[int] = (1, 2, 0, 0, 0, 0),     # 1 Werewolfs and 2 Townsfolk
         **kwargs,
     ):
         super().__init__(player_names=player_names, **kwargs)
@@ -65,8 +66,7 @@ class Werewolf(Environment):
         while self.player_status[self.player_names[self._next_player_idx]] != ALIVE:
             self._next_player_idx = (self._next_player_idx + 1) % (len(self.player_names))
         print("get_next_player")
-        print(self.player_names[self._next_player_idx])
-
+        print(self.player_names[self._next_player_idx]) 
         return self.player_names[self._next_player_idx]
     
 
@@ -74,7 +74,7 @@ class Werewolf(Environment):
         self._current_turn = 0
         self._next_player_idx = 0
         self._vote_count = 0
-        self._living_count = sum(self.role_distribution)
+        self._living_count = len(self.player_names)
         self._current_phase = DAY_DISSCUSION
         self.player_status = self.set_players_alive()
         self._get_prompt_dict()
@@ -130,7 +130,7 @@ class Werewolf(Environment):
 
     def give_day_vote_prompts(self):
         valid_votes = self.get_living_list()
-        valid_votes.append("pass")
+        valid_votes.append(PASS_STRING)
         for player_name in self.player_names:
             vote_prompt = player_name + self._prompt_dict["day_vote_prompt"] + str(valid_votes)
             self._moderator_speak(text= vote_prompt, visible_to=player_name)
@@ -143,7 +143,7 @@ class Werewolf(Environment):
 
     def give_night_vote_prompts(self):
         valid_votes = self.get_living_list()
-        valid_votes.append("pass") #This does allow werewolf to kill themselves. 
+        valid_votes.append(PASS_STRING) #This does allow werewolf to kill themselves. 
         for player_name in self.player_names:
             if self.player_roles[player_name][0] == WEREWOLF:
                 night_vote_prompt_werewolf =  self._prompt_dict["night_vote_prompt_werewolf"] + str(valid_votes)
@@ -227,7 +227,7 @@ class Werewolf(Environment):
             if self.day_vote_dict[player] > max:
                 max = self.day_vote_dict[player]
                 voted_player = player
-        if voted_player == 'pass' or max / self._living_count <= .5:
+        if voted_player == PASS_STRING or max / self._living_count <= .5:
             return
         else:
             self.player_status[voted_player] = DEAD
@@ -255,16 +255,17 @@ class Werewolf(Environment):
             )
             self.message_pool.append_message(message) # Logs the who took the action and when, only visable to the current player in game.
             vote = self._text2vote(action)
-            if self.player_roles[player_name][0] == SEER:
-                self._moderator_speak(self._seer_reveal_prompts[self.player_roles[vote][0]], player_name)
-            else:
-                self.night_vote_dict[vote].append(self.player_roles[player_name][0])
+            if vote in self.player_names and self.player_status[vote] == ALIVE:
+                if self.player_roles[player_name][0] == SEER:
+                    self._moderator_speak(self._seer_reveal_prompts[self.player_roles[vote][0]], player_name)
+                else :
+                    self.night_vote_dict[vote].append(self.player_roles[player_name][0])
 
     def apply_night_actions(self):
         for player_name in self.player_names:
-            if self.night_vote_dict[player_name].contains(GUARD):
+            if GUARD in self.night_vote_dict[player_name]:
                 return
-            else:
+            elif WITCH in self.night_vote_dict[player_name] or WEREWOLF in self.night_vote_dict[player_name]:
                 self.player_status[player_name] = DEAD
                 self._living_count -= 1
                 self._moderator_speak(player_name + self._prompt_dict["who_died"])
@@ -309,7 +310,6 @@ class Werewolf(Environment):
     #Taken from Cameleon, a fairly heavy implementation, but gives leniency to response.
     def _text2vote(self, text) -> str:
         """Convert text to vote, return a player's name."""
-        # bllower = text.lower().replace("[", "").replace("]", "").replace(".", "")
         text = text.lower()
         for name in self.player_names:
             candidates = [
@@ -319,10 +319,10 @@ class Werewolf(Environment):
             ]
             if any([candidate in text for candidate in candidates]):
                 return name
-        return "pass"
+        return PASS_STRING
     
     def reset_night_vote_dict(self):
-        self.day_vote_dict["pass"] = 0
+        self.day_vote_dict[PASS_STRING] = 0
         if (self.night_vote_dict != None):
             for player in self.player_names:
                 self.night_vote_dict[player] = []
@@ -330,7 +330,7 @@ class Werewolf(Environment):
             self.night_vote_dict = {}
 
     def reset_day_vote_dict(self):
-        self.day_vote_dict["pass"] = 0
+        self.day_vote_dict[PASS_STRING] = 0
         if (self.night_vote_dict != None):
             for player in self.player_names:
                 self.day_vote_dict[player] = 0
