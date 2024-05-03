@@ -1,0 +1,87 @@
+{
+    "players": [
+        {
+            "name": "sai",
+            "role_desc": "",
+            "backend": {
+                "model": "meta-llama/Meta-Llama-3-8B-Instruct",
+                "device": -1,
+                "backend_type": "transformers:conversational"
+            },
+            "global_prompt": ""
+        },
+        {
+            "name": "adam",
+            "role_desc": "",
+            "backend": {
+                "model": "meta-llama/Meta-Llama-3-8B-Instruct",
+                "device": -1,
+                "backend_type": "transformers:conversational"
+            },
+            "global_prompt": ""
+        },
+        {
+            "name": "sid",
+            "role_desc": "",
+            "backend": {
+                "model": "meta-llama/Meta-Llama-3-8B-Instruct",
+                "device": -1,
+                "backend_type": "transformers:conversational"
+            },
+            "global_prompt": ""
+        },
+        {
+            "name": "julia",
+            "role_desc": "",
+            "backend": {
+                "model": "meta-llama/Meta-Llama-3-8B-Instruct",
+                "device": -1,
+                "backend_type": "transformers:conversational"
+            },
+            "global_prompt": ""
+        },
+        {
+            "name": "marie",
+            "role_desc": "",
+            "backend": {
+                "model": "meta-llama/Meta-Llama-3-8B-Instruct",
+                "device": -1,
+                "backend_type": "transformers:conversational"
+            },
+            "global_prompt": ""
+        },
+        {
+            "name": "toby",
+            "role_desc": "",
+            "backend": {
+                "model": "meta-llama/Meta-Llama-3-8B-Instruct",
+                "device": -1,
+                "backend_type": "transformers:conversational"
+            },
+            "global_prompt": ""
+        },
+        {
+            "name": "sean",
+            "role_desc": "",
+            "backend": {
+                "model": "meta-llama/Meta-Llama-3-8B-Instruct",
+                "device": -1,
+                "backend_type": "transformers:conversational"
+            },
+            "global_prompt": ""
+        }
+    ],
+    "environment": {
+        "player_names": [
+            "julia",
+            "toby",
+            "sean",
+            "marie",
+            "sai",
+            "adam",
+            "sid"
+        ],
+        "env_type": "werewolf"
+    },
+    "global_prompt": ""
+}

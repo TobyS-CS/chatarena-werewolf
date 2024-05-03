@@ -9,11 +9,17 @@ from tenacity import RetryError
 from .backends import IntelligenceBackend, load_backend
 from .config import AgentConfig, BackendConfig, Configurable
 from .message import SYSTEM_NAME, Message
+from .backends import TransformersConversational
 
 # A special signal sent by the player to indicate that it is not possible to continue the conversation, and it requests to end the conversation.
 # It contains a random UUID string to avoid being exploited by any of the players.
 SIGNAL_END_OF_CONVERSATION = f"<<<<<<END_OF_CONVERSATION>>>>>>{uuid.uuid4()}"
 
+global_llama_backend = load_backend(
+    BackendConfig(
+        {'model': 'meta-llama/Meta-Llama-3-8B-Instruct', 'device': -1, 'backend_type': 'transformers:conversational'}
+    )
+)
 
 class Agent(Configurable):
     """An abstract base class for all the agents in the chatArena environment."""
@@ -50,7 +56,7 @@ class Player(Agent):
         self,
         name: str,
         role_desc: str,
-        backend: Union[BackendConfig, IntelligenceBackend],
+        backend, #: Union[BackendConfig, IntelligenceBackend],
         global_prompt: str = None,
         **kwargs,
     ):
@@ -63,16 +69,20 @@ class Player(Agent):
             backend (Union[BackendConfig, IntelligenceBackend]): The backend that will be used for decision making. It can be either a LLM backend or a Human backend.
             global_prompt (str): A universal prompt that applies to all players. Defaults to None.
         """
+        backend = backend
+        backend_config = backend.to_config()
+        print(backend_config)
+        
 
-        if isinstance(backend, BackendConfig):
-            backend_config = backend
-            backend = load_backend(backend_config)
-        elif isinstance(backend, IntelligenceBackend):
-            backend_config = backend.to_config()
-        else:
-            raise ValueError(
-                f"backend must be a BackendConfig or an IntelligenceBackend, but got {type(backend)}"
-            )
+        # if isinstance(backend, BackendConfig):
+        #     backend_config = backend
+        #     backend = global_llama_backend
+        # elif isinstance(backend, IntelligenceBackend):
+        #     backend_config = backend.to_config()
+        # else:
+        #     raise ValueError(
+        #         f"backend must be a BackendConfig or an IntelligenceBackend, but got {type(backend)}"
+        #     )
 
         assert (
             name != SYSTEM_NAME
