@@ -32,7 +32,7 @@ class Werewolf(Environment):
     def __init__(
         self,
         player_names: List[str],
-        role_distribution: Tuple[int] = (1, 2, 0, 0, 0, 0),     # 1 Werewolfs and 2 Townsfolk
+        role_distribution: Tuple[int] = (2, 4, 0, 0, 0, 0),     # 1 Werewolfs and 2 Townsfolk
         **kwargs,
     ):
         super().__init__(player_names=player_names, **kwargs)
@@ -122,6 +122,7 @@ class Werewolf(Environment):
                 print(player_name)
                 self._moderator_speak(text= rule_name_prompt, visible_to=player_name)
                 # Giving player their role
+                print(self.player_roles)
                 self._moderator_speak(text=self.player_roles[player_name][1], visible_to= player_name)
 
     def give_day_discuss_prompts(self):
@@ -132,18 +133,20 @@ class Werewolf(Environment):
         valid_votes = self.get_living_list()
         valid_votes.append(PASS_STRING)
         for player_name in self.player_names:
-            vote_prompt = self._prompt_dict["day_vote_prompt"].format(player=player_name, living_players=self.get_living_list())
+            vote_prompt = self._prompt_dict["day_vote_prompt"].format(player=player_name, living_players=valid_votes)
             self._moderator_speak(text= vote_prompt, visible_to=player_name)
 
     def give_night_discuss_prompts(self):
         for player_name in self.player_names:
             if self.player_roles[player_name][0] ==  WEREWOLF:
+                valid_votes = self.get_living_list()
+                valid_votes.append(PASS_STRING) #This does allow werewolf to kill themselves.
                 werewolves = self.get_werewolf_list()
                 assert player_name in werewolves
                 if len(werewolves) > 1:
-                    night_discuss_prompt =  self._prompt_dict["night_discuss_prompt_multi"].format(player1=werewolves[0], player2=werewolves[1], living_players=self.get_living_list())
+                    night_discuss_prompt =  self._prompt_dict["night_discuss_prompt_multi"].format(player1=werewolves[0], player2=werewolves[1], living_players=valid_votes)
                 elif len(werewolves) == 1:
-                    night_discuss_prompt =  self._prompt_dict["night_discuss_prompt_single"].format(player=player_name, living_players=self.get_living_list())
+                    night_discuss_prompt =  self._prompt_dict["night_discuss_prompt_single"].format(player=player_name, living_players=valid_votes)
                 else:
                     raise RuntimeError(f"There should only ever be 1 or 2 werewolves in a night phase, but there were {len(werewolves)} werewolves this night phase.")
                 self._moderator_speak(text=night_discuss_prompt, visible_to=self.werewolf_list)
@@ -153,7 +156,7 @@ class Werewolf(Environment):
         valid_votes.append(PASS_STRING) #This does allow werewolf to kill themselves. 
         for player_name in self.player_names:
             if self.player_roles[player_name][0] == WEREWOLF:
-                night_vote_prompt_werewolf =  self._prompt_dict["night_vote_prompt_werewolf"].format(living_players=self.get_living_list())
+                night_vote_prompt_werewolf =  self._prompt_dict["night_vote_prompt_werewolf"].format(living_players=valid_votes)
                 self._moderator_speak(text= night_vote_prompt_werewolf, visible_to=self.werewolf_list)
             elif self.player_roles[player_name][0] == GUARD:
                 night_vote_prompt_guard =  self._prompt_dict["night_vote_prompt_guard"] + str(valid_votes)
