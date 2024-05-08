@@ -116,13 +116,13 @@ class Werewolf(Environment):
     def give_initial_prompts(self):
             # Giving player their name and the rules of werewolf
             for player_name in self.player_names:
-                rule_name_promp = self._prompt_dict["rules_prompt"] + player_name
+                rule_name_prompt = self._prompt_dict["rules_prompt"].format(players=self.player_names, player=player_name)
                 print("self._current_turn == 0")
-                print(rule_name_promp)
+                print(rule_name_prompt)
                 print(player_name)
-                self._moderator_speak(text= rule_name_promp, visible_to=player_name)
-                # Giving player theiFr role
-                self._moderator_speak(text= self.player_roles[player_name][1], visible_to= player_name)
+                self._moderator_speak(text= rule_name_prompt, visible_to=player_name)
+                # Giving player their role
+                self._moderator_speak(text=self.player_roles[player_name][1], visible_to= player_name)
 
     def give_day_discuss_prompts(self):
         day_discuss_prompt =  self._prompt_dict["day_discuss_prompt"]
@@ -132,21 +132,28 @@ class Werewolf(Environment):
         valid_votes = self.get_living_list()
         valid_votes.append(PASS_STRING)
         for player_name in self.player_names:
-            vote_prompt = player_name + self._prompt_dict["day_vote_prompt"] + str(valid_votes)
+            vote_prompt = self._prompt_dict["day_vote_prompt"].format(player=player_name, living_players=self.get_living_list())
             self._moderator_speak(text= vote_prompt, visible_to=player_name)
 
     def give_night_discuss_prompts(self):
         for player_name in self.player_names:
             if self.player_roles[player_name][0] ==  WEREWOLF:
-                night_discuss_prompt =  self._prompt_dict["night_discuss_prompt"]
-                self._moderator_speak(text= night_discuss_prompt, visible_to=self.werewolf_list)
+                werewolves = self.get_werewolf_list()
+                assert player_name in werewolves
+                if len(werewolves) > 1:
+                    night_discuss_prompt =  self._prompt_dict["night_discuss_prompt_multi"].format(player1=werewolves[0], player2=werewolves[1], living_players=self.get_living_list())
+                elif len(werewolves) == 1:
+                    night_discuss_prompt =  self._prompt_dict["night_discuss_prompt_single"].format(player=player_name, living_players=self.get_living_list())
+                else:
+                    raise RuntimeError(f"There should only ever be 1 or 2 werewolves in a night phase, but there were {len(werewolves)} werewolves this night phase.")
+                self._moderator_speak(text=night_discuss_prompt, visible_to=self.werewolf_list)
 
     def give_night_vote_prompts(self):
         valid_votes = self.get_living_list()
         valid_votes.append(PASS_STRING) #This does allow werewolf to kill themselves. 
         for player_name in self.player_names:
             if self.player_roles[player_name][0] == WEREWOLF:
-                night_vote_prompt_werewolf =  self._prompt_dict["night_vote_prompt_werewolf"] + str(valid_votes)
+                night_vote_prompt_werewolf =  self._prompt_dict["night_vote_prompt_werewolf"].format(living_players=self.get_living_list())
                 self._moderator_speak(text= night_vote_prompt_werewolf, visible_to=self.werewolf_list)
             elif self.player_roles[player_name][0] == GUARD:
                 night_vote_prompt_guard =  self._prompt_dict["night_vote_prompt_guard"] + str(valid_votes)
@@ -232,7 +239,7 @@ class Werewolf(Environment):
         else:
             self.player_status[voted_player] = DEAD
             self._living_count -= 1
-            self._moderator_speak(voted_player + self._prompt_dict["voted_out"])
+            self._moderator_speak(self._prompt_dict["voted_out"].format(player=voted_player))
 
     def night_discuss_turn(self, player_name: str, action: str):
         """Night discussion phase turn for special roles."""
@@ -257,7 +264,7 @@ class Werewolf(Environment):
             vote = self._text2vote(action)
             if vote in self.player_names and self.player_status[vote] == ALIVE:
                 if self.player_roles[player_name][0] == SEER:
-                    self._moderator_speak(self._seer_reveal_prompts[self.player_roles[vote][0]], player_name)
+                    self._moderator_speak(self._seer_reveal_prompts[self.player_roles[vote][0]].format(player=vote), player_name)
                 else :
                     self.night_vote_dict[vote].append(self.player_roles[player_name][0])
 
@@ -268,7 +275,7 @@ class Werewolf(Environment):
             elif WITCH in self.night_vote_dict[player_name] or WEREWOLF in self.night_vote_dict[player_name]:
                 self.player_status[player_name] = DEAD
                 self._living_count -= 1
-                self._moderator_speak(player_name + self._prompt_dict["who_died"])
+                self._moderator_speak(self._prompt_dict["who_died"].format(player=player_name))
 
     def check_action(self, action: str, player_name: str) -> bool:
         """Checks if a action is valid."""
@@ -354,6 +361,13 @@ class Werewolf(Environment):
         print("living_list")
         print(living_list)
         return living_list
+    
+    def get_werewolf_list(self):
+        werewolf_list = []
+        for player_name in self.get_living_list():
+            if self.player_roles[player_name][0] == WEREWOLF:
+                werewolf_list.append(player_name)
+        return werewolf_list
     
     def _moderator_speak(self, text: str, visible_to: Union[str, List[str]] = "all"):
         """Moderator say something."""
