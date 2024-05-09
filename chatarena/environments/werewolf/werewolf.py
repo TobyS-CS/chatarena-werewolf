@@ -254,6 +254,8 @@ class Werewolf(Environment):
         if self.player_roles[player_name][0] == TOWNSFOLK: # Townsfolk don't have night actions.
             return
         else:
+            print("Not a townsfolk")
+            print(player_name)
             message = Message(
                 agent_name=player_name,
                 content=action,
@@ -269,6 +271,8 @@ class Werewolf(Environment):
                     self.night_vote_dict[vote].append(self.player_roles[player_name][0])
 
     def apply_night_actions(self):
+        print("night vote dict")
+        print(self.night_vote_dict)
         for player_name in self.player_names:
             if GUARD in self.night_vote_dict[player_name]:
                 return
