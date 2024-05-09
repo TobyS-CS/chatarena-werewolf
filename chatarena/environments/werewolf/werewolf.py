@@ -212,9 +212,14 @@ class Werewolf(Environment):
 
     def day_discuss_turn(self, player_name: str, action: str):
         """Day discuss phase turn for all roles."""
+        other_players = self.get_living_list()
+        other_players.remove(player_name)
+        player_discuss_prompt = self._prompt_dict["day_discuss_prompt_player"].format(
+            player=player_name, other_players=other_players)
+        self._moderator_speak(text=player_discuss_prompt, visible_to=player_name)
         self.message_pool.append_message(
             Message(agent_name=player_name, content=action, turn=self._current_turn)
-            )
+        )
         
     def day_vote_turn(self, player_name: str, action: str):
         """Day vote phase turn for all roles."""
