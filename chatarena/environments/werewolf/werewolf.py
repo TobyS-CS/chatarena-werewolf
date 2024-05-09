@@ -199,6 +199,7 @@ class Werewolf(Environment):
                     self._current_phase = NIGHT_DISSCUSION
                     self.give_night_discuss_prompts()
                     self._vote_count = 0
+                    self.reset_night_vote_dict()
                 self._current_phase = DAY_DISSCUSION
                 self.give_day_discuss_prompts()
                 self._discussion_count = 0
