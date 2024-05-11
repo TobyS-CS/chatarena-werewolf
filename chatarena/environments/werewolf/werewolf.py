@@ -166,6 +166,13 @@ class Werewolf(Environment):
                 self._moderator_speak(text= night_vote_prompt_witch, visible_to=player_name)
 
     def step(self, player_name: str, action: str) -> TimeStep:
+        if self.player_status[player_name] == DEAD:
+            terminal = self.is_terminal()
+            timestep = TimeStep(
+                observation=self.get_observation(), reward=self.get_rewards(terminal), terminal=terminal
+            )
+            self.get_next_player()
+            return timestep
         if self._current_phase == DAY_DISSCUSION:
             self._discussion_count += 1
             self.day_discuss_turn(player_name=player_name, action=action)
